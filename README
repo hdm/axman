@@ -1,0 +1,124 @@
+
+
+     o      ooooo  oooo oooo     oooo      o      oooo   oooo
+    888       888  88    8888o   888      888      8888o  88
+   8  88        888      88 888o8 88     8  88     88 888o88
+  8oooo88      88 888    88  888  88    8oooo88    88   8888
+o88o  o888o o88o  o888o o88o  8  o88o o88o  o888o o88o    88
+
+
+
+[SUMMARY]
+
+AxMan is an web-based ActiveX fuzzing engine. The goal of AxMan is to
+discover vulnerabilities in COM objects exposed through Internet
+Explorer. Since AxMan is web-based, any security changes in the
+browser will also affect the results of the fuzzing process. This
+allows for a much more realistic test than other COM-based assessment
+tools. 
+
+
+[CONTACT]
+
+AxMan was developed by H D Moore <hdm[at]metasploit.com> and is
+available under the MIT license. The axscan.cpp component (and 
+associated axman.exe) is based on Shane Hird's axenum tool included
+with axfuzz (http://axfuzz.sf.net/). The latest version of AxMan can
+be obtained from http://metasploit.com/users/hdm/tools/axman/
+
+
+[HOWTO]
+
+AxMan works by first enumerating all registered COM objects and their
+associated typelib information, then using that information to test
+each object's properties and methods. To enumerate the COM
+information, copy bin\axman.exe to the target system, and execute it
+as an administrative user:
+
+C:\> axman.exe myoutput
+
+The axman.exe executable will take anywhere from 10 minutes to 2
+hours to complete, depending on the number of COM objects registered
+on your system. While it runs, a number of new processes will be
+spawned and random popup windows will open. You can safely close any
+popup windows as they open, or just wait for the entire process to
+complete. Once axman.exe completes, the resulting directory should
+contain one javascript source file for every registered COM object.
+
+At this point, you should reboot the system in order to kill the
+spawned COM processes and free system resources.
+
+The next step is to prepare a web server to host the AxMan user
+interface. A web server running on the local system is the most
+efficient way to do this, but you can use any server capable of
+serving plain HTML and javascript files. Copy the html subdirectory of
+the AxMan archive to the web root and then copy the output directory
+created by axman.exe to a subdirectory named 'conf'. This should
+result in a directory structure like the following:
+
+/BASE/index.html
+/BASE/conf/objects.js
+/BASE/conf/{.....}.js
+
+On the target system, open Internet Explorer and browse the index.html
+page of the AxMan user interface. If everything has been installed
+successfully, a status message will be shown indicating how many COM
+object definitions were loaded.
+
+Click the start button to begin the fuzzing process.
+
+
+[DEBUG]
+
+AxMan will trigger hundreds of crashes on a typical system. Trying to
+determine what crashed and during what test is a challenge for a
+browser-based fuzzing engine. My personal approach to install WinDbg
+(available for free from Microsoft, search for 'Debugging Tools for
+Windows') and attach to the iexplore.exe process prior to starting the
+fuzzing process. After attaching the debugger, I hit F5 to continue
+the process and switch back to Internet Explorer. AxMan will report
+the current CLSID and tested property or method in the status bar of
+the browser. This status bar is updated in real-time during the
+testing process. I combine this with a 'tail' process on the log files
+of the hosting web server to quickly identify which component crashed
+and add the property or method to the blacklist. Keep in mind that the
+Internet Explorer UI will not update while the method fuzzing stage
+runs, which means that switching applications or doing basically
+anything on the testing system will prevent you from seeing which
+method triggered a specific crash.
+
+
+[BLACKLIST]
+
+The blacklist.js script contains a list of all objects, properties,
+and methods to skip during the fuzzing process. This doubles as a
+list of discovered bugs. As you find new vulnerabilities, update
+the blacklist to exclude them in future runs. Please see the examples
+in blacklist.js for more information.
+
+
+[TRACER]
+
+AxMan uses a unique string as part of both the property and method
+fuzzing operations. This allows you to run tools like filemon and
+regmon to determine what system-level operations happen when a
+specific property is set or method is called. The default magic string
+is set to 'AXM4N', but this can be changed in axman.js. Some sample
+findings include:
+
+Setting the PrinterName property for 2337A8C-E11D-11D0-BE48-00C04FC30DF6
+results in spoolsv.exe access the following registry key:
+ HKCU\Printers\Connections\[VALUE]
+
+Calling the parseURL method of 079aa557-4a18-424a-8eee-e39f0a8d41b9
+results in the entire system path being scanned for a file matching
+the argument name.
+
+
+[FUTURE]
+
+Server-side integration and asynchronous method testing are the two
+big features that will be added to future versions. The current
+implementation is very slow for methods with three arguments and may
+cause the "Do you want to stop this script?" prompt to appear in
+certain cases.

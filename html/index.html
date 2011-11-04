@@ -1,0 +1,189 @@
+<html>
+<head>
+<title>AxMan</title>
+<link type="text/css" rel="stylesheet" href="axman.css">
+<script src="axman.js" language="javascript"></script>
+<script src="blacklist.js" language="javascript"></script>
+<script src="conf/objects.js" language="javascript"></script>
+<script>
+/*
+	---===[ AxMan (c) 2006 hdm[at]metasploit.com - All rights reserved.
+	
+	
+	Quick Start:
+		 
+		 1) Execute axman.exe [output-dir]
+		 2) Rename the output directory to conf
+		 3) Move this directory under html
+		 4) Copy the html directory to a web server
+		 5) Point Internet Explorer at this file
+		 6) Attach a debugger to iexplore.exe
+		 7) Start the fuzzer
+*/
+
+
+	function log(msg) {
+		document.getElementById("report").innerHTML += msg + "<br>\n";
+	}
+	
+
+	// Start this off at -1
+	var idx = -1;
+	
+	// Single object mode
+	var sin = false;
+	
+	function next() {
+		idx += 1;
+		
+		// Skip all blacklisted class IDs
+		while (ax_objects[idx] && isBadClass([ax_objects[idx]]))
+			idx += 1;
+			
+		if (ax_objects[idx]) {
+			updateStatus(ax_objects[idx].toString().toUpperCase() + ' (' + (idx+1) + ' of ' + ax_objects.length + ')');
+		
+			// This forces the DLL cleanup routines from the last test to activate
+			window.frames['ax'].location.href = "about:blank";
+			
+			// Load up the next control...
+			window.status = "Trying to load "+ax_objects[idx]+" ("+idx+")...";
+			window.frames['ax'].location.href = "fuzzer.html?"+ax_objects[idx];
+			
+			// Only allow one object in single mode
+			if (sin) idx = ax_objects.length;
+				
+		} else {
+			updateStatus('Completed');
+			window.status = 'Completed';
+			stopFuzz();
+		}
+	}
+	
+	function updateStatus(msg) {
+		document.getElementById('status').innerHTML = 'Status: ' + msg;
+	}
+
+	function startFuzz() {
+	
+		if (! window.ActiveXObject) {
+			alert('This browser does not support ActiveX!');
+			return;
+		}
+	
+		idx = document.getElementById('skip').value - 1;
+		sin = false
+		document.getElementById('stop').disabled = false;
+		document.getElementById('start').disabled = true;
+		document.getElementById('startSingle').disabled = true;
+		document.getElementById("report").innerHTML = '';
+		next();	
+	}
+
+	function startSingleFuzz() {
+	
+		if (! window.ActiveXObject) {
+			alert('This browser does not support ActiveX!');
+			return;
+		}
+	
+		var cls = document.getElementById('singleclsid').value.toUpperCase();
+		if (cls.substring(0,1) != '{') 
+			cls = '{' + cls + '}';
+
+		for (var i = 0; i < ax_objects.length; i++) {
+			if (ax_objects[i].toUpperCase() == cls) {
+				
+				idx = i - 1;
+				sin = true;
+				
+				document.getElementById('stop').disabled = false;
+				document.getElementById('start').disabled = true;
+				document.getElementById('startSingle').disabled = true;		
+				document.getElementById("report").innerHTML = '';
+
+				next();		
+				return(0);
+			}
+		}
+		
+		alert('Class ' + cls + ' was not found in objects.js!');	
+	}
+		
+	function stopFuzz() {
+		idx = ax_objects.length;
+		document.getElementById('start').disabled = false;
+		document.getElementById('startSingle').disabled = false;
+		document.getElementById('stop').disabled = true;
+	}
+	
+	function optPropReadOnly() { return document.getElementById('chkPropReadOnly').checked; }
+	function optPropReadWrite() { return document.getElementById('chkPropReadWrite').checked; }
+	function optPropFuzzNum() { return document.getElementById('chkPropFuzzNum').checked; }
+	function optPropFuzzStr() { return document.getElementById('chkPropFuzzStr').checked; }
+	function optPropFuzzObj() { return document.getElementById('chkPropFuzzObj').checked; }
+	function optMethFuzz() { return document.getElementById('chkMethFuzz').checked; }
+	function optSingle() { return sin; }
+	
+	function init(){
+		initBadClassHash();
+		try {
+			updateStatus('Loaded ' + ax_objects.length + ' objects');
+		} catch(e) {
+			updateStatus('Broken installation, conf/objects.js is not accessible');
+		}
+	}
+	
+</script>
+</head>
+<body onLoad='init()'>
+
+<div align='center'>
+	<h2>
+		<a href="http://metasploit.com/users/hdm/tools/axman/">AxMan</a>
+		 Fuzzing Engine v1.0.0
+	</h2>
+</div>
+
+<hr width='100%' size=1 color='#dddddd'>
+
+<div style='display: inline;'>
+	<input id='start' type="button" onClick="startFuzz()" value="Start"> 
+	<input id='stop'  type="button" onClick="stopFuzz()"  value="Stop" disabled='true'>
+	Start Index: <input id='skip'  type='text' size='5' value='0'>
+</div>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+<div id='status' style='display: inline;'></div>
+
+<hr width='100%' size=1 color='#dddddd'>
+<div style='display: inline;'>
+	<input id='startSingle' type="button" onClick="startSingleFuzz()" value="Single"> 
+	CLSID: <input id='singleclsid'  type='text' size='60' value=''>
+</div>
+
+<hr width='100%' size=1 color='#dddddd'>
+
+<div style='display: inline;'>
+Fuzzing Options:<br>
+<blockquote>
+<input type='checkbox' id='chkPropReadOnly'> Property Read-Only <br> 
+<input type='checkbox' id='chkPropReadWrite'> Property Read-Write <br>
+<input type='checkbox' id='chkPropFuzzNum' checked> Property Write Numeric <br>
+<input type='checkbox' id='chkPropFuzzStr' checked> Property Write Strings <br>
+<input type='checkbox' id='chkPropFuzzObj' checked> Property Write Objects <br>
+<input type='checkbox' id='chkMethFuzz' checked> Method Fuzzing <br>
+</blockquote>
+</div>
+
+<hr width='100%' size=1 color='#dddddd'>
+
+<iframe id="ax" name="ax" src="about:blank" width="100%" height="200" border=0 style='visibility: hidden'>
+</iframe>
+
+<div id="report" width='100%' bgcolor='#eeeeee'>
+</div>
+
+</body>
+</html>

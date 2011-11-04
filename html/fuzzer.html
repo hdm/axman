@@ -1,0 +1,172 @@
+<html>
+<head>
+	<title>AxMan Chopping Block</title>
+	<script src="axman.js" language="javascript"></script>
+	<script src="blacklist.js" language="javascript"></script>
+	<script src="fuzzer.js" language="javascript"></script>	
+	<script>
+	
+		// ---===[ AxMan (c) 2006 hdm[at]metasploit.com - All rights reserved.
+
+		var ax    = new Array();
+		var clsid = null; 
+		var obj   = null;
+		var count = 0;
+		var timer = null;
+			
+		function test() {
+		
+			var query = location.search.charAt(0) == '?' ? location.search.substring(1) : location.search;
+			clsid = unescape(query);
+			
+			/* Load the real script */
+			s = document.createElement('script');
+			s.src = 'conf/' + clsid + '.js';
+			s.type = 'text/javascript';
+			document.body.appendChild(s);
+			
+			
+			/* Load the callback script (hack to avoid callback in each JS) */
+			s = document.createElement('script');
+			s.src = 'callback.js?' + clsid;
+			s.type = 'text/javascript';
+			s.defer = true;
+			document.body.appendChild(s);
+		}
+		
+		function createObject() {
+			var cls = clsid.substring(1, clsid.length - 1);
+			document.getElementById('axcontainer').innerHTML =  
+				"<" + "object id='target' classid=\"CLSID:" + cls + "\" ><" + "/object>";
+		}
+		
+		// Called from callback.js and starts our timer
+		function cbAxMan() {
+			count = 0;
+			timer = setInterval(AxManLoad, 250);
+		}
+		
+		function AxManLoad() {
+			if (ax[clsid]) {
+				count = 0;
+				clearInterval(timer);
+				setTimeout(AxManStart, 100);
+				return(0);
+			}
+			
+			if (count > 20) {
+				clearInterval(timer);
+				if (window.parent.optSingle())
+					alert('Failed to load typelib for ' + clsid);
+				window.parent.next();
+				return(0);
+			}
+			
+			count++;
+		}
+		
+		function AxManStart() {
+		
+			if (ax[clsid]['Fatal']) {
+				if (window.parent.optSingle())
+					alert('Skipping fatal load for ' + clsid);
+				window.parent.next();
+				return(0);				
+			}
+
+			window.status = "Creating " + clsid  + " " + ax[clsid]['Info'];
+			
+			// Load the object into the document
+			createObject();
+			
+			// Start the load timer
+			timer = setInterval(AxManLoadObject, 100);
+			count = 0;
+		}
+		
+		
+		function AxManLoadObject() {
+
+			if (count > 20) {
+				if (window.parent.optSingle())
+					alert('Failed to create object for ' + clsid);
+							
+				window.status = "Failed to create " + clsid  + " " + ax[clsid]['Info'];
+				clearInterval(timer);
+				window.parent.next();
+				return(0);			
+			}
+			
+			try {
+				obj = document.getElementById('target').object;
+				if (! obj) {
+					count = 1000;
+					return(0);
+				}
+				
+				clearInterval(timer);
+				count = 0;
+				setTimeout(AxManFuzz, 100);
+			} catch(e) {
+				/*
+					(e.number != -2146827859) &&
+					(e.number != -2147024891) &&
+					(e.number != -2146827858) &&
+				*/
+			}
+		
+			count++;
+		}
+		
+		function AxManFuzz() {
+			
+			if (window.parent.optSingle() && ! ax[clsid]['Functions']) {
+				alert('No typelib data for ' + clsid);
+				window.parent.next();
+				return(0);	
+			}
+
+			// Step 0. Generate the evil parameter values
+			window.status = "Creating input for " + clsid  + "...";
+			createEvilPropArgs();
+			window.status = "Created input for " + clsid  + "!";
+			
+			// Step 1. Try accessing all properties
+			if (window.parent.optPropReadOnly())
+				fuzzReadProperties(obj);
+			
+			// Step 2. Try setting all properties to same value
+			if (window.parent.optPropReadWrite())
+				fuzzReadWriteProperties(obj);
+			
+			// Step 3. Try setting all properties to integer values
+			if (window.parent.optPropFuzzNum())
+				fuzzNumericProperties(obj);
+
+			// Step 4. Try setting all properties to string values
+			if (window.parent.optPropFuzzStr())			
+				fuzzStringProperties(obj);						
+
+			// Step 5. Try setting all properties to object values
+			if (window.parent.optPropFuzzObj())			
+				fuzzObjectProperties(obj);	
+			
+			destroyEvilPropArgs();
+
+			// Step 6. Try fuzzing all methods
+			if (window.parent.optMethFuzz())
+				fuzzMethods(obj);
+							
+			// Completed
+			window.parent.next();
+			return(0);
+		}
+
+	</script>
+</head>
+<body onload="test()">
+
+<div id='axcontainer'></div>
+
+</body>
+</html>

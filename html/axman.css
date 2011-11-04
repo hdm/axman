@@ -1,0 +1,32 @@
+html {
+	margin: 0 0 0 0;
+	padding: 1em 1em 1em 1em;
+}
+
+A:link  {
+	text-decoration: underline;
+	color: black;
+}
+
+A:visited  {
+	text-decoration: underline;
+	color: black;
+}
+
+A:active  {
+	text-decoration: underline;
+	color: black;
+}
+
+A:hover  {
+	color: black;
+	text-decoration: none;
+}
+
+body  {
+	font-family: 'Lucida Grande','Lucida Sans Unicode', verdana, sans-serif;
+	font-size: 10pt;
+	color: black;
+	background-color: white;
+	margin: 0 0 0 0;
+}
